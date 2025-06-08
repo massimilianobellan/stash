@@ -22,7 +22,8 @@
     "paths": {
       "stash": ["src/index.ts"],
       "stash/": ["src/*"]
-    }
+    },
+    "types": ["@testing-library/jest-dom"]
   },
   "include": ["src", "test"]
 }
