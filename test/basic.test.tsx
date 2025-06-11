@@ -1,18 +1,20 @@
 import { test, expect } from "vitest";
-import { createStash } from "stash";
+import { createStash, useStash } from "stash";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 test("it works", async () => {
+  const createdStash = createStash({ count: 0 });
   function Component() {
-    const [getStash, setStash] = createStash({ count: 0 });
+    const [stash, setStash] = useStash(createdStash);
+
     return (
       <>
-        <div>{getStash().count}</div>
+        <div>{stash.count}</div>
         <button
           onClick={() =>
             setStash((curr) => {
-              return { count: curr.count + 1 };
+              return { ...curr, count: curr.count + 1 };
             })
           }
         >

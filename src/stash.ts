@@ -1,28 +1,40 @@
-type SetStashFunction<T> = (oldStash: T) => void;
-type SetStash<T> = T | SetStashFunction<T>;
+type NextStashCallback<T> = (prevStash: T) => T;
+type NextStash<T> = T | NextStashCallback<T>;
+type SetStash<T> = (nextStash: NextStash<T>) => void;
 type StashSubscriber = () => void;
 
-export function createStash<T>(initialStash: T) {
+export type Stash<T> = {
+  getStash: () => T;
+  setStash: SetStash<T>;
+  subscribe: (cb: StashSubscriber) => StashSubscriber;
+};
+
+export function createStash<T>(initialStash: T): Stash<T> {
   let stash = initialStash;
   const stashSubscribers = new Set<StashSubscriber>();
 
-  function getStash() {
+  const getStash: Stash<T>["getStash"] = function () {
     return stash;
-  }
+  };
 
-  function setStash(nextStash: SetStash<T>) {
-    if (typeof nextStash === "function") {
-      nextStash(stash);
-      return;
+  const setStash: Stash<T>["setStash"] = function (nextStash) {
+    if (isNextStashCallback(nextStash)) {
+      stash = nextStash(stash);
+    } else {
+      stash = nextStash;
     }
-    stash = nextStash;
-    stashSubscribers.forEach((callback) => callback());
-  }
+  };
 
-  function subscribe(callback: StashSubscriber) {
+  const subscribe: Stash<T>["subscribe"] = function (callback) {
     stashSubscribers.add(callback);
     return () => stashSubscribers.delete(callback);
-  }
+  };
 
-  return [getStash, setStash] as const;
+  return { setStash, getStash, subscribe };
+}
+
+function isNextStashCallback<T>(
+  nextStash: NextStash<T>
+): nextStash is NextStashCallback<T> {
+  return typeof nextStash === "function" && nextStash.length === 1;
 }
