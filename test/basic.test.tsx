@@ -4,22 +4,14 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 test("it works", async () => {
-  const createdStash = createStash({ count: 0 });
+  const createdStash = createStash({ count: 0, setCount: () => count + 1 });
   function Component() {
-    const [stash, setStash] = useStash(createdStash);
+    const stash = useStash(createdStash);
 
     return (
       <>
         <div>{stash.count}</div>
-        <button
-          onClick={() =>
-            setStash((curr) => {
-              return { ...curr, count: curr.count + 1 };
-            })
-          }
-        >
-          Click
-        </button>
+        <button>Click</button>
       </>
     );
   }

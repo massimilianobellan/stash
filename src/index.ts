@@ -1,2 +1,2 @@
 export * from "./stash";
-export * from "./react/useStash";
+export * from "./react";
