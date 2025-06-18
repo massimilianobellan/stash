@@ -1,8 +1,23 @@
 import { useSyncExternalStore } from "react";
 import { createStash, type Stash } from "stash";
 
-export function useStash<T>(stash: Stash<T>) {
-  return useSyncExternalStore(stash.subscribe, stash.getStash, stash.getStash);
+type Selector<T> = (state: T) => T;
+
+export function useStash<T>(stash: Stash<T>): T;
+export function useStash<T, Slice = T>(
+  stash: Stash<T>,
+  selector?: Selector<Slice>
+): T;
+export function useStash<T>(
+  stash: Stash<T>,
+  selector: Selector<T> = (state) => state
+) {
+  const slice = useSyncExternalStore(
+    stash.subscribe,
+    () => selector(stash.getStash()),
+    () => selector(stash.getStash())
+  );
+  return slice;
 }
 
 type StateCreator<T> = (
@@ -10,7 +25,9 @@ type StateCreator<T> = (
   get: () => T
 ) => T;
 
-export function create<T>(initialStash: StateCreator<T>) {
+export type StashApi<T> = (selector?: Selector<T>) => T;
+
+export function create<T>(initialStash: StateCreator<T>): StashApi<T> {
   const stash = createStash({} as T);
 
   const get: Parameters<StateCreator<T>>[1] = function () {
@@ -25,8 +42,8 @@ export function create<T>(initialStash: StateCreator<T>) {
   const initialState = initialStash(set, get);
   stash.setStash(initialState);
 
-  function useBoundStash() {
-    return useStash(stash);
+  function useBoundStash(selector?: Selector<T>) {
+    return useStash(stash, selector);
   }
 
   Object.assign(useBoundStash, stash);

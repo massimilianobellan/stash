@@ -1,12 +1,15 @@
 type NextStashCallback<T> = (prevStash: T) => T;
 type NextStash<T> = T | NextStashCallback<T>;
-type SetStash<T> = (nextStash: NextStash<T>) => void;
 type StashSubscriber<T> = (state: T, prevState: T) => void;
 
+type GetStash<T> = () => T;
+type SetStash<T> = (nextStash: NextStash<T>) => void;
+type Subscribe<T> = (listener: StashSubscriber<T>) => () => void;
+
 export type Stash<T> = {
-  getStash: () => T;
+  getStash: GetStash<T>;
   setStash: SetStash<T>;
-  subscribe: (listener: StashSubscriber<T>) => () => void;
+  subscribe: Subscribe<T>;
 };
 
 export function createStash<T>(initialStash: T): Stash<T> {
