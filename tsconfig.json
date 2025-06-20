@@ -6,6 +6,7 @@
     "jsx": "react-jsx",
     "declaration": true,
     "declarationDir": "dist/types",
+    "declarationMap": true,
     "outDir": "dist",
     "strict": true,
     "moduleResolution": "Node",
@@ -25,5 +26,6 @@
     },
     "types": ["@testing-library/jest-dom"]
   },
-  "include": ["src", "test"]
+  "include": ["src", "test"],
+  "exclude": ["dist"]
 }

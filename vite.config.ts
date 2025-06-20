@@ -4,7 +4,13 @@ import dts from "vite-plugin-dts";
 import tsconfigPaths from "vite-tsconfig-paths";
 
 export default defineConfig({
-  plugins: [react(), dts(), tsconfigPaths()],
+  plugins: [
+    react(),
+    dts({
+      exclude: ["test"],
+    }),
+    tsconfigPaths(),
+  ],
   build: {
     lib: {
       entry: "src/index.ts",

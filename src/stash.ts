@@ -18,6 +18,27 @@ export type StashApi<T> = {
   subscribe: Subscribe<T>;
 };
 
+/**
+ * Creates a stash store with getter, setter, and subscriber support.
+ *
+ * This function initializes internal state (`stash`) using the provided `initializer`,
+ * and returns an API with methods to get the current state, update it, and subscribe to changes.
+ *
+ * The `stash` state can be updated directly with a partial object or via a function
+ * that receives the previous state and returns a partial update.
+ *
+ * @template T - The shape of the stash state.
+ *
+ * @param initializer - A function that initializes the stash state. It receives:
+ *  - `set`: A function to update the stash state.
+ *  - `get`: A function to retrieve the current stash state.
+ *  - `stash`: The stash API itself.
+ *
+ * @returns An object with:
+ *  - `getStash`: A function to get the current state.
+ *  - `setStash`: A function to update the state.
+ *  - `subscribe`: A function to listen for state changes.
+ */
 export function create<T>(initializer: StashInitializer<T>): StashApi<T> {
   let stash: T;
   const stashSubscribers = new Set<StashSubscriber<T>>();
