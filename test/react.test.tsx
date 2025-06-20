@@ -332,24 +332,24 @@ test("can use shallow compare for partial hook", async () => {
   waitFor(() => expect(screen.queryByTestId("rerenders1")).toBe(1));
   waitFor(() => expect(screen.queryByTestId("rerenders2")).toBe(1));
 
-  waitFor(() => expect(screen.queryByTestId("count1")).toBe(0));
-  waitFor(() => expect(screen.queryByTestId("count2")).toBe(0));
+  expect(screen.queryByTestId("count1")).toHaveTextContent("0");
+  expect(screen.queryByTestId("count2")).toHaveTextContent("0");
 
   await userEvent.click(screen.getByTestId("addCount1"));
 
   waitFor(() => expect(screen.queryByTestId("rerenders1")).toBe(2));
   waitFor(() => expect(screen.queryByTestId("rerenders2")).toBe(1));
 
-  waitFor(() => expect(screen.queryByTestId("count1")).toBe(1));
-  waitFor(() => expect(screen.queryByTestId("count2")).toBe(0));
+  expect(screen.queryByTestId("count1")).toHaveTextContent("1");
+  expect(screen.queryByTestId("count2")).toHaveTextContent("0");
 
   await userEvent.click(screen.getByTestId("addCount2"));
 
   waitFor(() => expect(screen.queryByTestId("rerenders1")).toBe(2));
   waitFor(() => expect(screen.queryByTestId("rerenders2")).toBe(2));
 
-  waitFor(() => expect(screen.queryByTestId("count1")).toBe(1));
-  waitFor(() => expect(screen.queryByTestId("count2")).toBe(1));
+  expect(screen.queryByTestId("count1")).toHaveTextContent("1");
+  expect(screen.queryByTestId("count2")).toHaveTextContent("1");
 
   await userEvent.click(screen.getByTestId("addCount1"));
   await userEvent.click(screen.getByTestId("addCount1"));
@@ -357,6 +357,93 @@ test("can use shallow compare for partial hook", async () => {
   waitFor(() => expect(screen.queryByTestId("rerenders1")).toBe(4));
   waitFor(() => expect(screen.queryByTestId("rerenders2")).toBe(2));
 
-  waitFor(() => expect(screen.queryByTestId("count1")).toBe(3));
-  waitFor(() => expect(screen.queryByTestId("count2")).toBe(1));
+  expect(screen.queryByTestId("count1")).toHaveTextContent("3");
+  expect(screen.queryByTestId("count2")).toHaveTextContent("1");
+});
+
+test("works without a context as a global state", async () => {
+  type MyStash = {
+    count: number;
+    incrementCount: () => void;
+  };
+
+  const stash = create<MyStash>((set) => ({
+    count: 0,
+    incrementCount: () => {
+      set(({ count }) => ({ count: count + 1 }));
+    },
+  }));
+
+  function Component() {
+    const { count, incrementCount } = useStash(stash);
+
+    return (
+      <>
+        <div data-testid="count">{count}</div>
+        <button data-testid="addCount" onClick={incrementCount}>
+          Click
+        </button>
+      </>
+    );
+  }
+
+  render(<Component />);
+
+  expect(screen.queryByTestId("count")).toHaveTextContent("0");
+
+  await userEvent.click(screen.getByTestId("addCount"));
+
+  expect(screen.queryByTestId("count")).toHaveTextContent("1");
+});
+
+test("works without a context as a global state between components", async () => {
+  type MyStash = {
+    count: number;
+    incrementCount: () => void;
+  };
+
+  const stash = create<MyStash>((set) => ({
+    count: 0,
+    incrementCount: () => {
+      set(({ count }) => ({ count: count + 1 }));
+    },
+  }));
+
+  function Component1() {
+    const { count, incrementCount } = useStash(stash);
+
+    return (
+      <>
+        <div data-testid="count1">{count}</div>
+        <button data-testid="addCount" onClick={incrementCount}>
+          Click
+        </button>
+      </>
+    );
+  }
+
+  function Component2() {
+    const { count } = useStash(stash);
+
+    return (
+      <>
+        <div data-testid="count2">{count}</div>
+      </>
+    );
+  }
+
+  render(
+    <>
+      <Component1 />
+      <Component2 />
+    </>
+  );
+
+  expect(screen.queryByTestId("count1")).toHaveTextContent("0");
+  expect(screen.queryByTestId("count2")).toHaveTextContent("0");
+
+  await userEvent.click(screen.getByTestId("addCount"));
+
+  expect(screen.queryByTestId("count1")).toHaveTextContent("1");
+  expect(screen.queryByTestId("count2")).toHaveTextContent("1");
 });
