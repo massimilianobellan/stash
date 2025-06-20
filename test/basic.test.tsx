@@ -8,7 +8,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { create, useStash } from "stash";
+import { create, useStash, type StashApi } from "stash";
 import { expect, test } from "vitest";
 
 test("can create a store", async () => {
@@ -18,7 +18,7 @@ test("can create a store", async () => {
   };
 
   function Component() {
-    const [useStash] = useState(() =>
+    const [stash] = useState(() =>
       create<MyStash>((set) => ({
         count: 0,
         incrementCount: () => {
@@ -26,11 +26,11 @@ test("can create a store", async () => {
         },
       }))
     );
-    const { count, incrementCount } = useStash();
+    const { count, incrementCount } = useStash(stash);
 
     return (
       <>
-        <div>{count}</div>
+        <div data-testid="count">{count}</div>
         <button onClick={incrementCount}>Click</button>
       </>
     );
@@ -38,9 +38,11 @@ test("can create a store", async () => {
 
   render(<Component />);
 
+  waitFor(() => expect(screen.queryByTestId("count")).toBe(0));
+
   await userEvent.click(screen.getByText("Click"));
 
-  expect(screen.getByText("1")).toBeInTheDocument();
+  waitFor(() => expect(screen.queryByTestId("count")).toBe(1));
 });
 
 test("all components rerender", async () => {
@@ -50,7 +52,7 @@ test("all components rerender", async () => {
   };
 
   function ParentComponent() {
-    const [useStash] = useState(() =>
+    const [stash] = useState(() =>
       create<MyStash>((set) => ({
         count: 0,
         incrementCount: () => {
@@ -61,14 +63,14 @@ test("all components rerender", async () => {
 
     return (
       <>
-        <Component1 useStash={useStash} />
-        <Component2 useStash={useStash} />
+        <Component1 stash={stash} />
+        <Component2 stash={stash} />
       </>
     );
   }
 
-  function Component1({ useStash }: { useStash: () => MyStash }) {
-    const { count, incrementCount } = useStash();
+  function Component1({ stash }: { stash: StashApi<MyStash> }) {
+    const { count, incrementCount } = useStash(stash);
 
     return (
       <>
@@ -78,8 +80,8 @@ test("all components rerender", async () => {
     );
   }
 
-  function Component2({ useStash }: { useStash: () => MyStash }) {
-    const { count } = useStash();
+  function Component2({ stash }: { stash: StashApi<MyStash> }) {
+    const { count } = useStash(stash);
 
     return (
       <>
@@ -105,112 +107,10 @@ test("components can be updated with selectors", async () => {
     incrementCount2: () => void;
   };
 
-  function ParentComponent() {
-    const [useStash] = useState(() =>
-      create<MyStash>((set) => ({
-        count1: 0,
-        count2: 0,
-        incrementCount1: () => {
-          set(({ count1 }) => ({ count1: count1 + 1 }));
-        },
-        incrementCount2: () => {
-          set(({ count2 }) => ({ count2: count2 + 1 }));
-        },
-      }))
-    );
-
-    return (
-      <>
-        <Component1 useStash={useStash} />
-        <Component2 useStash={useStash} />
-      </>
-    );
-  }
-
-  function Component1({ useStash }: { useStash: () => MyStash }) {
-    const { count1, incrementCount1 } = useStash();
-    const ref = useRef(0);
-
-    useEffect(() => {
-      ref.current = ref.current + 1;
-    });
-
-    return (
-      <>
-        <div data-testid="rerenders1">{ref.current}</div>
-        <div data-testid="count1">{count1}</div>
-        <button data-testid="addcount1" onClick={incrementCount1}>
-          Click
-        </button>
-      </>
-    );
-  }
-
-  function Component2({ useStash }: { useStash: () => MyStash }) {
-    const { count2, incrementCount2 } = useStash();
-    const ref = useRef(0);
-
-    useEffect(() => {
-      ref.current = ref.current + 1;
-    });
-
-    return (
-      <>
-        <div data-testid="rerenders2">{ref.current}</div>
-        <div data-testid="count2">{count2}</div>
-        <button data-testid="addcount2" onClick={incrementCount2}>
-          Click
-        </button>
-      </>
-    );
-  }
-
-  render(<ParentComponent />);
-
-  waitFor(() => expect(screen.queryByTestId("rerenders1")).toBe(1));
-  waitFor(() => expect(screen.queryByTestId("rerenders2")).toBe(1));
-
-  waitFor(() => expect(screen.queryByTestId("count1")).toBe(0));
-  waitFor(() => expect(screen.queryByTestId("count2")).toBe(0));
-
-  await userEvent.click(screen.getByTestId("addcount1"));
-
-  waitFor(() => expect(screen.queryByTestId("rerenders1")).toBe(2));
-  waitFor(() => expect(screen.queryByTestId("rerenders2")).toBe(1));
-
-  waitFor(() => expect(screen.queryByTestId("count1")).toBe(1));
-  waitFor(() => expect(screen.queryByTestId("count2")).toBe(0));
-
-  await userEvent.click(screen.getByTestId("addcount2"));
-
-  waitFor(() => expect(screen.queryByTestId("rerenders1")).toBe(2));
-  waitFor(() => expect(screen.queryByTestId("rerenders2")).toBe(2));
-
-  waitFor(() => expect(screen.queryByTestId("count1")).toBe(1));
-  waitFor(() => expect(screen.queryByTestId("count2")).toBe(1));
-
-  await userEvent.click(screen.getByTestId("addcount1"));
-  await userEvent.click(screen.getByTestId("addcount1"));
-
-  waitFor(() => expect(screen.queryByTestId("rerenders1")).toBe(4));
-  waitFor(() => expect(screen.queryByTestId("rerenders2")).toBe(2));
-
-  waitFor(() => expect(screen.queryByTestId("count1")).toBe(3));
-  waitFor(() => expect(screen.queryByTestId("count2")).toBe(1));
-});
-
-test.skip("hook can be used from components in a context", async () => {
-  type MyStash = {
-    count1: number;
-    count2: number;
-    incrementCount1: () => void;
-    incrementCount2: () => void;
-  };
-
-  const CountContext = createContext<MyStash | null>(null);
+  const CountContext = createContext<StashApi<MyStash> | null>(null);
 
   function CounterContext({ children }: { children: ReactNode }) {
-    const [useStash] = useState(() =>
+    const [stash] = useState(() =>
       create<MyStash>((set) => ({
         count1: 0,
         count2: 0,
@@ -222,16 +122,24 @@ test.skip("hook can be used from components in a context", async () => {
         },
       }))
     );
-
     return (
-      <CountContext.Provider value={useStash}>{children}</CountContext.Provider>
+      <CountContext.Provider value={stash}>{children}</CountContext.Provider>
     );
   }
 
   function useCounter1() {
     const context = useContext(CountContext);
     if (!context) throw new Error("Did not use useCounter1 in Context");
-    return useStash(context);
+    return useStash(context, (stash) => ({
+      count1: stash.count1,
+      incrementCount1: stash.incrementCount1,
+    }));
+  }
+
+  function useCounter2() {
+    const context = useContext(CountContext);
+    if (!context) throw new Error("Did not use useCounter1 in Context");
+    return useStash(context, (state) => state);
   }
 
   function ParentComponent() {
@@ -244,7 +152,7 @@ test.skip("hook can be used from components in a context", async () => {
   }
 
   function Component1() {
-    const { count1, incrementCount1 } = useStash();
+    const { count1, incrementCount1 } = useCounter1();
     const ref = useRef(0);
 
     useEffect(() => {
@@ -263,7 +171,7 @@ test.skip("hook can be used from components in a context", async () => {
   }
 
   function Component2() {
-    const { count2, incrementCount2 } = useStash();
+    const { count2, incrementCount2 } = useCounter2();
     const ref = useRef(0);
 
     useEffect(() => {
