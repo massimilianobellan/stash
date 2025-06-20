@@ -1,3 +1,3 @@
 export * from "./react";
-export * from "./stash";
 export * from "./shallowEqual";
+export * from "./stash";

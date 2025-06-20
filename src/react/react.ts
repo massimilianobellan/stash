@@ -1,8 +1,8 @@
 import { useRef, useSyncExternalStore } from "react";
-import type { StashApi } from "./stash";
-import { shallowEqual } from "./shallowEqual";
+import { shallowEqual } from "../shallowEqual";
+import { type StashApi } from "../stash";
 
-type Selector<T, S = T> = (state: T) => S;
+export type Selector<T, S = T> = (state: T) => S;
 
 /**
  * React hook to subscribe to a `StashApi` store and select part or all of its state.

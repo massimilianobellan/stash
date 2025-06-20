@@ -6,7 +6,7 @@ type GetStash<T> = () => T;
 type SetStash<T> = (nextStash: NextStash<T>) => void;
 type Subscribe<T> = (listener: StashSubscriber<T>) => () => void;
 
-type StashInitializer<T> = (
+export type StashInitializer<T> = (
   set: SetStash<T>,
   get: GetStash<T>,
   stash: StashApi<T>
