@@ -8,7 +8,7 @@
     "test": "vitest"
   },
   "keywords": [],
-  "author": "",
+  "author": "Massimiliano Bellan <massimilianobellan25@gmail.com> (https://massimilianobellan.dev/)",
   "license": "ISC",
   "type": "commonjs",
   "devDependencies": {
