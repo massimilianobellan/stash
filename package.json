@@ -1,8 +1,7 @@
 {
-  "name": "stash",
-  "version": "1.0.0",
+  "name": "@massimilianobellan/stash",
+  "version": "0.0.1",
   "description": "",
-  "main": "index.js",
   "scripts": {
     "build": "vite build",
     "test": "vitest"
@@ -11,6 +10,11 @@
   "author": "Massimiliano Bellan <massimilianobellan25@gmail.com> (https://massimilianobellan.dev/)",
   "license": "ISC",
   "type": "commonjs",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
   "devDependencies": {
     "@eslint/js": "^9.29.0",
     "@testing-library/dom": "^10.4.0",
