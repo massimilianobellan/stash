@@ -1,6 +1,6 @@
 {
   "name": "@massimilianobellan/stash",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "",
   "scripts": {
     "build": "vite build",
@@ -15,6 +15,10 @@
   "files": [
     "dist"
   ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/massimilianobellan/stash/"
+  },
   "devDependencies": {
     "@eslint/js": "^9.29.0",
     "@testing-library/dom": "^10.4.0",

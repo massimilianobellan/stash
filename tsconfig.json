@@ -22,7 +22,7 @@
     "baseUrl": ".",
     "paths": {
       "stash": ["src/index.ts"],
-      "stash/": ["src/*"]
+      "stash/react": ["src/react/index.ts"]
     },
     "types": ["@testing-library/jest-dom"]
   },

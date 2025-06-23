@@ -8,7 +8,8 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { create, createStrictStash, useStash, type StashApi } from "stash";
+import { create, type StashApi } from "stash";
+import { createStrictStash, useStash } from "stash/react";
 import { expect, test } from "vitest";
 
 test("can create a store", async () => {

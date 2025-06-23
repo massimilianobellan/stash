@@ -28,7 +28,20 @@ jobs:
       - name: Build the library
         run: npm run build
 
+      - name: Check if version is already published
+        id: check_version
+        run: |
+          PKG_NAME=$(node -p "require('./package.json').name")
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          NPM_VIEW=$(npm view $PKG_NAME@$PKG_VERSION version || true)
+          if [ "$NPM_VIEW" = "$PKG_VERSION" ]; then
+            echo "published=true" >> $GITHUB_OUTPUT
+          else
+            echo "published=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Publish to NPM
+        if: steps.check_version.outputs.published == 'false'
         run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

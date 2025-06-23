@@ -1,11 +1,6 @@
 import { createContext, useContext, useState, type ReactNode } from "react";
-import {
-  create,
-  useStash,
-  type Selector,
-  type StashApi,
-  type StashInitializer,
-} from "stash";
+import { create, type StashApi, type StashInitializer } from "stash";
+import { useStash, type Selector } from "./react";
 
 type StrictStashReturn<T> = [
   <S = T>(selector?: Selector<T, S>) => S,
