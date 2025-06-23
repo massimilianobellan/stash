@@ -1,7 +1,6 @@
 type AnyObject = Record<string, unknown>;
 
 function arrayShallowEqual<T>(a: T[], b: T[]) {
-  if (a === b) return true;
   if (a.length !== b.length) return false;
   return a.every((_, index): boolean => {
     return shallowEqual(a[index], b[index]);
@@ -9,7 +8,6 @@ function arrayShallowEqual<T>(a: T[], b: T[]) {
 }
 
 function objectShallowEqual(a: AnyObject, b: AnyObject) {
-  if (a === b) return true;
   const aKeys = Object.keys(a).sort();
   const bKeys = Object.keys(b).sort();
 

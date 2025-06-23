@@ -1,5 +1,5 @@
 import { shallowEqual } from "stash";
-import { test, expect } from "vitest";
+import { expect, test } from "vitest";
 
 test("compares primitives correctly", () => {
   expect(shallowEqual(1, 1)).toBe(true);

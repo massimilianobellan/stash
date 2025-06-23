@@ -1,3 +1,5 @@
+import { shallowEqual } from "./shallowEqual";
+
 type NextStashCallback<T> = (prevState: T) => Partial<T>;
 type NextStash<T> = T | Partial<T> | NextStashCallback<T>;
 type StashSubscriber<T> = (state: T, prevState: T) => void;
@@ -49,11 +51,13 @@ export function create<T>(initializer: StashInitializer<T>): StashApi<T> {
 
   const setStash: StashApi<T>["setStash"] = function (nextStash) {
     const prevStash = stash;
-    if (isNextStashCallback(nextStash)) {
-      stash = { ...prevStash, ...nextStash(prevStash) };
-    } else {
-      stash = { ...prevStash, ...nextStash };
-    }
+    const newStash = isNextStashCallback(nextStash)
+      ? nextStash(prevStash)
+      : nextStash;
+
+    if (shallowEqual(stash, newStash)) return;
+
+    stash = { ...prevStash, ...newStash };
     stashSubscribers.forEach((subscriber) => subscriber(stash, prevStash));
   };
 

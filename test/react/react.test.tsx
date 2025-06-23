@@ -10,7 +10,7 @@ import {
 } from "react";
 import { create, type StashApi } from "stash";
 import { createStrictStash, useStash } from "stash/react";
-import { expect, test } from "vitest";
+import { describe, expect, test } from "vitest";
 
 test("can create a store", async () => {
   type MyStash = {
@@ -434,4 +434,52 @@ test("can use shallow compare for partial hook", async () => {
 
   expect(screen.queryByTestId("count1")).toHaveTextContent("3");
   expect(screen.queryByTestId("count2")).toHaveTextContent("1");
+});
+
+describe("createStrictStash", () => {
+  const [useCounter, CounterProvider] = createStrictStash(
+    () => ({ count: 0 }),
+    "Counter"
+  );
+
+  test("throws an error if the provider is missing", () => {
+    const TestComponent = () => {
+      useCounter();
+      return null;
+    };
+
+    expect(() => render(<TestComponent />)).toThrowError(
+      "Counter Context Provider is missing in the tree"
+    );
+  });
+
+  test("provides the stash state correctly", () => {
+    const TestComponent = () => {
+      const { count } = useCounter((state) => ({ count: state.count }));
+      return <span>{count}</span>;
+    };
+
+    render(
+      <CounterProvider>
+        <TestComponent />
+      </CounterProvider>
+    );
+
+    expect(screen.getByText("0")).toBeInTheDocument();
+  });
+
+  test("gets base stash if none is passed", () => {
+    const TestComponent = () => {
+      const count = useCounter().count;
+      return <span>{count}</span>;
+    };
+
+    render(
+      <CounterProvider>
+        <TestComponent />
+      </CounterProvider>
+    );
+
+    expect(screen.getByText("0")).toBeInTheDocument();
+  });
 });
