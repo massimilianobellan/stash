@@ -1,6 +1,6 @@
 {
   "name": "@massimilianobellan/stash",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "",
   "scripts": {
     "build": "vite build",
@@ -19,6 +19,16 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/massimilianobellan/stash/"
+  },
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.js"
+    },
+    "./react": {
+      "import": "./dist/react.js",
+      "require": "./dist/react.js"
+    }
   },
   "devDependencies": {
     "@eslint/js": "^9.29.0",
