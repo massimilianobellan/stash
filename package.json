@@ -1,6 +1,6 @@
 {
   "name": "@massimilianobellan/stash",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "",
   "scripts": {
     "build": "vite build",
@@ -23,11 +23,13 @@
   "exports": {
     ".": {
       "import": "./dist/index.js",
-      "require": "./dist/index.js"
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
     },
     "./react": {
       "import": "./dist/react.js",
-      "require": "./dist/react.js"
+      "require": "./dist/react.js",
+      "types": "./dist/react.d.ts"
     }
   },
   "devDependencies": {
