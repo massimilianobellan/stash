@@ -22,14 +22,14 @@
   },
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
-      "require": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "require": "./dist/index.js"
     },
     "./react": {
-      "import": "./dist/react.js",
-      "require": "./dist/react.js",
-      "types": "./dist/react.d.ts"
+      "types": "./dist/react/index.d.ts",
+      "import": "./dist/react/index.js",
+      "require": "./dist/react/index.js"
     }
   },
   "devDependencies": {

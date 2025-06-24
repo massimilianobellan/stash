@@ -8,6 +8,7 @@ export default defineConfig({
     react(),
     dts({
       exclude: ["test"],
+      outDir: "dist",
     }),
     tsconfigPaths(),
   ],
@@ -15,13 +16,18 @@ export default defineConfig({
     lib: {
       entry: {
         index: "src/index.ts",
-        react: "src/react/index.ts",
+        "react/index": "src/react/index.ts",
       },
       name: "Stash",
       formats: ["es", "cjs"],
     },
     rollupOptions: {
-      external: ["react", "react-dom"],
+      external: [
+        "react",
+        "react-dom",
+        "react/jsx-runtime",
+        "react/jsx-dev-runtime",
+      ],
       output: {
         globals: {
           react: "React",
