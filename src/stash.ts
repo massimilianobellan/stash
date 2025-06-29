@@ -80,5 +80,5 @@ export function create<T>(initializer: StashInitializer<T>): StashApi<T> {
 function isNextStashCallback<T>(
   nextStash: NextStash<T>
 ): nextStash is NextStashCallback<T> {
-  return typeof nextStash === "function" && nextStash.length === 1;
+  return typeof nextStash === "function";
 }

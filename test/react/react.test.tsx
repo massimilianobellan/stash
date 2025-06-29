@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {
   createContext,
@@ -12,194 +12,251 @@ import { create, type StashApi } from "stash";
 import { createStrictStash, useStash } from "stash/react";
 import { describe, expect, test } from "vitest";
 
-test("can create a store", async () => {
-  type MyStash = {
-    count: number;
-    incrementCount: () => void;
-  };
+describe("useStash hook", () => {
+  test("can create and use a store", async () => {
+    type CounterStash = {
+      count: number;
+      incrementCount: () => void;
+    };
 
-  function Component() {
-    const [stash] = useState(() =>
-      create<MyStash>((set) => ({
+    function Counter() {
+      const [stash] = useState(() =>
+        create<CounterStash>((set) => ({
+          count: 0,
+          incrementCount: () => {
+            set(({ count }) => ({ count: count + 1 }));
+          },
+        }))
+      );
+      const { count, incrementCount } = useStash(stash);
+
+      return (
+        <>
+          <div data-testid="count">{count}</div>
+          <button onClick={incrementCount}>Click</button>
+        </>
+      );
+    }
+
+    render(<Counter />);
+    expect(screen.getByTestId("count")).toHaveTextContent("0");
+
+    await userEvent.click(screen.getByText("Click"));
+    expect(screen.getByTestId("count")).toHaveTextContent("1");
+  });
+
+  test("all components rerender when using shared stash", async () => {
+    type CounterStash = {
+      count: number;
+      incrementCount: () => void;
+    };
+
+    const createCounterStash = () =>
+      create<CounterStash>((set) => ({
         count: 0,
         incrementCount: () => {
           set(({ count }) => ({ count: count + 1 }));
         },
-      }))
-    );
-    const { count, incrementCount } = useStash(stash);
+      }));
 
-    return (
+    function App() {
+      const [stash] = useState(createCounterStash);
+      return (
+        <>
+          <Counter stash={stash} />
+          <Display stash={stash} />
+        </>
+      );
+    }
+
+    function Counter({ stash }: { stash: StashApi<CounterStash> }) {
+      const { count, incrementCount } = useStash(stash);
+      return (
+        <>
+          <div data-testid="counter">{count}</div>
+          <button data-testid="increment" onClick={incrementCount}>
+            Click
+          </button>
+        </>
+      );
+    }
+
+    function Display({ stash }: { stash: StashApi<CounterStash> }) {
+      const { count } = useStash(stash);
+      return <div data-testid="display">{count}</div>;
+    }
+
+    render(<App />);
+    expect(screen.getByTestId("counter")).toHaveTextContent("0");
+    expect(screen.getByTestId("display")).toHaveTextContent("0");
+
+    await userEvent.click(screen.getByTestId("increment"));
+    expect(screen.getByTestId("counter")).toHaveTextContent("1");
+    expect(screen.getByTestId("display")).toHaveTextContent("1");
+  });
+
+  test("works with global state without context", async () => {
+    type CounterStash = {
+      count: number;
+      incrementCount: () => void;
+    };
+
+    const globalStash = create<CounterStash>((set) => ({
+      count: 0,
+      incrementCount: () => {
+        set(({ count }) => ({ count: count + 1 }));
+      },
+    }));
+
+    function Counter() {
+      const { count, incrementCount } = useStash(globalStash);
+      return (
+        <>
+          <div data-testid="count">{count}</div>
+          <button data-testid="increment" onClick={incrementCount}>
+            Click
+          </button>
+        </>
+      );
+    }
+
+    function Display() {
+      const { count } = useStash(globalStash);
+      return <div data-testid="display">{count}</div>;
+    }
+
+    render(
       <>
-        <div data-testid="count">{count}</div>
-        <button onClick={incrementCount}>Click</button>
+        <Counter />
+        <Display />
       </>
     );
-  }
 
-  render(<Component />);
+    expect(screen.getByTestId("count")).toHaveTextContent("0");
+    expect(screen.getByTestId("display")).toHaveTextContent("0");
 
-  waitFor(() => expect(screen.queryByTestId("count")).toBe(0));
+    await userEvent.click(screen.getByTestId("increment"));
+    expect(screen.getByTestId("count")).toHaveTextContent("1");
+    expect(screen.getByTestId("display")).toHaveTextContent("1");
+  });
 
-  await userEvent.click(screen.getByText("Click"));
+  test("components only rerender when their selected state changes", async () => {
+    type CounterStash = {
+      count1: number;
+      count2: number;
+      incrementCount1: () => void;
+      incrementCount2: () => void;
+    };
 
-  waitFor(() => expect(screen.queryByTestId("count")).toBe(1));
+    const CountContext = createContext<StashApi<CounterStash> | null>(null);
+
+    function CountProvider({ children }: { children: ReactNode }) {
+      const [stash] = useState(() =>
+        create<CounterStash>((set) => ({
+          count1: 0,
+          count2: 0,
+          incrementCount1: () => {
+            set(({ count1 }) => ({ count1: count1 + 1 }));
+          },
+          incrementCount2: () => {
+            set(({ count2 }) => ({ count2: count2 + 1 }));
+          },
+        }))
+      );
+      return (
+        <CountContext.Provider value={stash}>{children}</CountContext.Provider>
+      );
+    }
+
+    function Counter1() {
+      const context = useContext(CountContext);
+      if (!context) throw new Error("Missing context");
+
+      const count = useStash(context, ({ count1 }) => count1);
+      const incrementCount = useStash(
+        context,
+        ({ incrementCount1 }) => incrementCount1
+      );
+      const renders = useRef(0);
+
+      useEffect(() => {
+        renders.current++;
+      });
+
+      return (
+        <>
+          <div data-testid="renders1">{renders.current}</div>
+          <div data-testid="count1">{count}</div>
+          <button data-testid="increment1" onClick={incrementCount}>
+            Click
+          </button>
+        </>
+      );
+    }
+
+    function Counter2() {
+      const context = useContext(CountContext);
+      if (!context) throw new Error("Missing context");
+
+      const count = useStash(context, ({ count2 }) => count2);
+      const incrementCount = useStash(
+        context,
+        ({ incrementCount1 }) => incrementCount1
+      );
+      const renders = useRef(0);
+
+      useEffect(() => {
+        renders.current++;
+      });
+
+      return (
+        <>
+          <div data-testid="renders2">{renders.current}</div>
+          <div data-testid="count2">{count}</div>
+          <button data-testid="increment2" onClick={incrementCount}>
+            Click
+          </button>
+        </>
+      );
+    }
+
+    render(
+      <CountProvider>
+        <Counter1 />
+        <Counter2 />
+      </CountProvider>
+    );
+
+    expect(screen.getByTestId("count1")).toHaveTextContent("0");
+    expect(screen.getByTestId("count2")).toHaveTextContent("0");
+
+    expect(screen.getByTestId("renders1")).toHaveTextContent("0");
+    expect(screen.getByTestId("renders2")).toHaveTextContent("0");
+
+    await userEvent.click(screen.getByTestId("increment1"));
+    expect(screen.getByTestId("count1")).toHaveTextContent("1");
+    expect(screen.getByTestId("count2")).toHaveTextContent("0");
+    expect(screen.getByTestId("renders1")).toHaveTextContent("1");
+    expect(screen.getByTestId("renders2")).toHaveTextContent("0");
+
+    await userEvent.click(screen.getByTestId("increment1"));
+    expect(screen.getByTestId("count1")).toHaveTextContent("2");
+    expect(screen.getByTestId("renders1")).toHaveTextContent("2");
+    expect(screen.getByTestId("renders2")).toHaveTextContent("0");
+  });
 });
 
-test("all components rerender", async () => {
-  type MyStash = {
-    count: number;
-    incrementCount: () => void;
-  };
+describe("createStrictStash", () => {
+  test("shallow comparison prevents unnecessary rerenders", async () => {
+    type DualCounterStash = {
+      count1: number;
+      count2: number;
+      incrementCount1: () => void;
+      incrementCount2: () => void;
+    };
 
-  function ParentComponent() {
-    const [stash] = useState(() =>
-      create<MyStash>((set) => ({
-        count: 0,
-        incrementCount: () => {
-          set(({ count }) => ({ count: count + 1 }));
-        },
-      }))
-    );
-
-    return (
-      <>
-        <Component1 stash={stash} />
-        <Component2 stash={stash} />
-      </>
-    );
-  }
-
-  function Component1({ stash }: { stash: StashApi<MyStash> }) {
-    const { count, incrementCount } = useStash(stash);
-
-    return (
-      <>
-        <div>{count}</div>
-        <button onClick={incrementCount}>Click</button>
-      </>
-    );
-  }
-
-  function Component2({ stash }: { stash: StashApi<MyStash> }) {
-    const { count } = useStash(stash);
-
-    return (
-      <>
-        <div>{count}</div>
-      </>
-    );
-  }
-
-  render(<ParentComponent />);
-
-  expect(screen.queryAllByText("1")).toHaveLength(0);
-
-  await userEvent.click(screen.getByText("Click"));
-
-  expect(screen.queryAllByText("1")).toHaveLength(2);
-});
-
-test("works without a context as a global state", async () => {
-  type MyStash = {
-    count: number;
-    incrementCount: () => void;
-  };
-
-  const stash = create<MyStash>((set) => ({
-    count: 0,
-    incrementCount: () => {
-      set(({ count }) => ({ count: count + 1 }));
-    },
-  }));
-
-  function Component() {
-    const { count, incrementCount } = useStash(stash);
-
-    return (
-      <>
-        <div data-testid="count">{count}</div>
-        <button data-testid="addCount" onClick={incrementCount}>
-          Click
-        </button>
-      </>
-    );
-  }
-
-  render(<Component />);
-
-  expect(screen.queryByTestId("count")).toHaveTextContent("0");
-
-  await userEvent.click(screen.getByTestId("addCount"));
-
-  expect(screen.queryByTestId("count")).toHaveTextContent("1");
-});
-
-test("works without a context as a global state between components", async () => {
-  type MyStash = {
-    count: number;
-    incrementCount: () => void;
-  };
-
-  const stash = create<MyStash>((set) => ({
-    count: 0,
-    incrementCount: () => {
-      set(({ count }) => ({ count: count + 1 }));
-    },
-  }));
-
-  function Component1() {
-    const { count, incrementCount } = useStash(stash);
-
-    return (
-      <>
-        <div data-testid="count1">{count}</div>
-        <button data-testid="addCount" onClick={incrementCount}>
-          Click
-        </button>
-      </>
-    );
-  }
-
-  function Component2() {
-    const { count } = useStash(stash);
-
-    return (
-      <>
-        <div data-testid="count2">{count}</div>
-      </>
-    );
-  }
-
-  render(
-    <>
-      <Component1 />
-      <Component2 />
-    </>
-  );
-
-  expect(screen.queryByTestId("count1")).toHaveTextContent("0");
-  expect(screen.queryByTestId("count2")).toHaveTextContent("0");
-
-  await userEvent.click(screen.getByTestId("addCount"));
-
-  expect(screen.queryByTestId("count1")).toHaveTextContent("1");
-  expect(screen.queryByTestId("count2")).toHaveTextContent("1");
-});
-
-test("components can be updated with atomic selectors", async () => {
-  type MyStash = {
-    count1: number;
-    count2: number;
-    incrementCount1: () => void;
-    incrementCount2: () => void;
-  };
-
-  const CountContext = createContext<StashApi<MyStash> | null>(null);
-
-  function CounterContext({ children }: { children: ReactNode }) {
-    const [stash] = useState(() =>
-      create<MyStash>((set) => ({
+    const [useStash, StashProvider] = createStrictStash<DualCounterStash>(
+      (set) => ({
         count1: 0,
         count2: 0,
         incrementCount1: () => {
@@ -208,278 +265,198 @@ test("components can be updated with atomic selectors", async () => {
         incrementCount2: () => {
           set(({ count2 }) => ({ count2: count2 + 1 }));
         },
-      }))
+      })
     );
-    return (
-      <CountContext.Provider value={stash}>{children}</CountContext.Provider>
+
+    function Counter1() {
+      const { count, incrementCount } = useStash(
+        ({ count1, incrementCount1 }) => ({
+          count: count1,
+          incrementCount: incrementCount1,
+        })
+      );
+      const renders = useRef(0);
+
+      useEffect(() => {
+        renders.current++;
+      });
+
+      return (
+        <>
+          <div data-testid="renders1">{renders.current}</div>
+          <div data-testid="count1">{count}</div>
+          <button data-testid="increment1" onClick={incrementCount}>
+            Click
+          </button>
+        </>
+      );
+    }
+
+    function Counter2() {
+      const { count, incrementCount } = useStash(
+        ({ count2, incrementCount2 }) => ({
+          count: count2,
+          incrementCount: incrementCount2,
+        })
+      );
+      const renders = useRef(0);
+
+      useEffect(() => {
+        renders.current++;
+      });
+
+      return (
+        <>
+          <div data-testid="renders2">{renders.current}</div>
+          <div data-testid="count2">{count}</div>
+          <button data-testid="increment2" onClick={incrementCount}>
+            Click
+          </button>
+        </>
+      );
+    }
+
+    render(
+      <StashProvider>
+        <Counter1 />
+        <Counter2 />
+      </StashProvider>
     );
-  }
 
-  function useCount1() {
-    const context = useContext(CountContext);
-    if (!context) throw new Error("Did not use useCounter1 in Context");
-    return useStash(context, ({ count1 }) => count1);
-  }
+    expect(screen.getByTestId("count1")).toHaveTextContent("0");
+    expect(screen.getByTestId("count2")).toHaveTextContent("0");
+    expect(screen.getByTestId("renders1")).toHaveTextContent("0");
+    expect(screen.getByTestId("renders2")).toHaveTextContent("0");
 
-  function useIncrementCount1() {
-    const context = useContext(CountContext);
-    if (!context) throw new Error("Did not use useCounter1 in Context");
-    return useStash(context, ({ incrementCount1 }) => incrementCount1);
-  }
+    await userEvent.click(screen.getByTestId("increment1"));
+    expect(screen.getByTestId("count1")).toHaveTextContent("1");
+    expect(screen.getByTestId("count2")).toHaveTextContent("0");
+    expect(screen.getByTestId("renders1")).toHaveTextContent("1");
+    expect(screen.getByTestId("renders2")).toHaveTextContent("0");
 
-  function useCount2() {
-    const context = useContext(CountContext);
-    if (!context) throw new Error("Did not use useCounter1 in Context");
-    return useStash(context, ({ count2 }) => count2);
-  }
+    await userEvent.click(screen.getByTestId("increment2"));
+    expect(screen.getByTestId("count1")).toHaveTextContent("1");
+    expect(screen.getByTestId("count2")).toHaveTextContent("1");
+    expect(screen.getByTestId("renders1")).toHaveTextContent("1");
+    expect(screen.getByTestId("renders2")).toHaveTextContent("1");
+  });
 
-  function useIncrementCount2() {
-    const context = useContext(CountContext);
-    if (!context) throw new Error("Did not use useCounter1 in Context");
-    return useStash(context, ({ incrementCount1 }) => incrementCount1);
-  }
+  test("throws error if provider is missing", () => {
+    const [useCounter] = createStrictStash(() => ({ count: 0 }), "Counter");
 
-  function ParentComponent() {
-    return (
-      <CounterContext>
-        <Component1 />
-        <Component2 />
-      </CounterContext>
-    );
-  }
-
-  function Component1() {
-    const count = useCount1();
-    const incrementCount = useIncrementCount1();
-    const ref = useRef(0);
-
-    useEffect(() => {
-      ref.current = ref.current + 1;
-    });
-
-    return (
-      <>
-        <div data-testid="rerenders1">{ref.current}</div>
-        <div data-testid="count1">{count}</div>
-        <button data-testid="addCount1" onClick={incrementCount}>
-          Click
-        </button>
-      </>
-    );
-  }
-
-  function Component2() {
-    const count = useCount2();
-    const incrementCount = useIncrementCount2();
-    const ref = useRef(0);
-
-    useEffect(() => {
-      ref.current = ref.current + 1;
-    });
-
-    return (
-      <>
-        <div data-testid="rerenders2">{ref.current}</div>
-        <div data-testid="count2">{count}</div>
-        <button data-testid="addCount2" onClick={incrementCount}>
-          Click
-        </button>
-      </>
-    );
-  }
-
-  render(<ParentComponent />);
-
-  waitFor(() => expect(screen.queryByTestId("rerenders1")).toBe(1));
-  waitFor(() => expect(screen.queryByTestId("rerenders2")).toBe(1));
-
-  waitFor(() => expect(screen.queryByTestId("count1")).toBe(0));
-  waitFor(() => expect(screen.queryByTestId("count2")).toBe(0));
-
-  await userEvent.click(screen.getByTestId("addCount1"));
-
-  waitFor(() => expect(screen.queryByTestId("rerenders1")).toBe(2));
-  waitFor(() => expect(screen.queryByTestId("rerenders2")).toBe(1));
-
-  waitFor(() => expect(screen.queryByTestId("count1")).toBe(1));
-  waitFor(() => expect(screen.queryByTestId("count2")).toBe(0));
-
-  await userEvent.click(screen.getByTestId("addCount2"));
-
-  waitFor(() => expect(screen.queryByTestId("rerenders1")).toBe(2));
-  waitFor(() => expect(screen.queryByTestId("rerenders2")).toBe(2));
-
-  waitFor(() => expect(screen.queryByTestId("count1")).toBe(1));
-  waitFor(() => expect(screen.queryByTestId("count2")).toBe(1));
-
-  await userEvent.click(screen.getByTestId("addCount1"));
-  await userEvent.click(screen.getByTestId("addCount1"));
-
-  waitFor(() => expect(screen.queryByTestId("rerenders1")).toBe(4));
-  waitFor(() => expect(screen.queryByTestId("rerenders2")).toBe(2));
-
-  waitFor(() => expect(screen.queryByTestId("count1")).toBe(3));
-  waitFor(() => expect(screen.queryByTestId("count2")).toBe(1));
-});
-
-test("can use shallow compare for partial hook", async () => {
-  type MyStash = {
-    count1: number;
-    count2: number;
-    incrementCount1: () => void;
-    incrementCount2: () => void;
-  };
-
-  const [useStash, StasthContext] = createStrictStash<MyStash>((set) => ({
-    count1: 0,
-    count2: 0,
-    incrementCount1: () => {
-      set(({ count1 }) => ({ count1: count1 + 1 }));
-    },
-    incrementCount2: () => {
-      set(({ count2 }) => ({ count2: count2 + 1 }));
-    },
-  }));
-
-  function useCount1() {
-    return useStash(({ count1, incrementCount1 }) => ({
-      count: count1,
-      incrementCount: incrementCount1,
-    }));
-  }
-
-  function useCount2() {
-    return useStash(({ count2, incrementCount2 }) => ({
-      count: count2,
-      incrementCount: incrementCount2,
-    }));
-  }
-
-  function ParentComponent() {
-    return (
-      <StasthContext>
-        <Component1 />
-        <Component2 />
-      </StasthContext>
-    );
-  }
-
-  function Component1() {
-    const { count, incrementCount } = useCount1();
-    const ref = useRef(0);
-
-    useEffect(() => {
-      ref.current = ref.current + 1;
-    });
-
-    return (
-      <>
-        <div data-testid="rerenders1">{ref.current}</div>
-        <div data-testid="count1">{count}</div>
-        <button data-testid="addCount1" onClick={incrementCount}>
-          Click
-        </button>
-      </>
-    );
-  }
-
-  function Component2() {
-    const { count, incrementCount } = useCount2();
-    const ref = useRef(0);
-
-    useEffect(() => {
-      ref.current = ref.current + 1;
-    });
-
-    return (
-      <>
-        <div data-testid="rerenders2">{ref.current}</div>
-        <div data-testid="count2">{count}</div>
-        <button data-testid="addCount2" onClick={incrementCount}>
-          Click
-        </button>
-      </>
-    );
-  }
-
-  render(<ParentComponent />);
-
-  waitFor(() => expect(screen.queryByTestId("rerenders1")).toBe(1));
-  waitFor(() => expect(screen.queryByTestId("rerenders2")).toBe(1));
-
-  expect(screen.queryByTestId("count1")).toHaveTextContent("0");
-  expect(screen.queryByTestId("count2")).toHaveTextContent("0");
-
-  await userEvent.click(screen.getByTestId("addCount1"));
-
-  waitFor(() => expect(screen.queryByTestId("rerenders1")).toBe(2));
-  waitFor(() => expect(screen.queryByTestId("rerenders2")).toBe(1));
-
-  expect(screen.queryByTestId("count1")).toHaveTextContent("1");
-  expect(screen.queryByTestId("count2")).toHaveTextContent("0");
-
-  await userEvent.click(screen.getByTestId("addCount2"));
-
-  waitFor(() => expect(screen.queryByTestId("rerenders1")).toBe(2));
-  waitFor(() => expect(screen.queryByTestId("rerenders2")).toBe(2));
-
-  expect(screen.queryByTestId("count1")).toHaveTextContent("1");
-  expect(screen.queryByTestId("count2")).toHaveTextContent("1");
-
-  await userEvent.click(screen.getByTestId("addCount1"));
-  await userEvent.click(screen.getByTestId("addCount1"));
-
-  waitFor(() => expect(screen.queryByTestId("rerenders1")).toBe(4));
-  waitFor(() => expect(screen.queryByTestId("rerenders2")).toBe(2));
-
-  expect(screen.queryByTestId("count1")).toHaveTextContent("3");
-  expect(screen.queryByTestId("count2")).toHaveTextContent("1");
-});
-
-describe("createStrictStash", () => {
-  const [useCounter, CounterProvider] = createStrictStash(
-    () => ({ count: 0 }),
-    "Counter"
-  );
-
-  test("throws an error if the provider is missing", () => {
-    const TestComponent = () => {
+    function TestComponent() {
       useCounter();
       return null;
-    };
+    }
 
     expect(() => render(<TestComponent />)).toThrowError(
       "Counter Context Provider is missing in the tree"
     );
   });
 
-  test("provides the stash state correctly", () => {
-    const TestComponent = () => {
+  test("provides the stash state and accepts selectors", () => {
+    const [useCounter, CounterProvider] = createStrictStash(() => ({
+      count: 0,
+    }));
+
+    function WithSelector() {
       const { count } = useCounter((state) => ({ count: state.count }));
-      return <span>{count}</span>;
-    };
+      return <span data-testid="count-selector">{count}</span>;
+    }
+
+    function WithoutSelector() {
+      const { count } = useCounter();
+      return <span data-testid="count-full">{count}</span>;
+    }
 
     render(
       <CounterProvider>
-        <TestComponent />
+        <WithSelector />
+        <WithoutSelector />
       </CounterProvider>
     );
 
-    expect(screen.getByText("0")).toBeInTheDocument();
+    expect(screen.getByTestId("count-selector")).toHaveTextContent("0");
+    expect(screen.getByTestId("count-full")).toHaveTextContent("0");
   });
 
-  test("gets base stash if none is passed", () => {
-    const TestComponent = () => {
-      const count = useCounter().count;
-      return <span>{count}</span>;
-    };
+  describe("set works with both direct objects and callbacks", () => {
+    test("state updates correctly with direct object", async () => {
+      type ActionStash = {
+        action: "1" | "2";
+        setAction: (newAction: "1" | "2") => void;
+      };
 
-    render(
-      <CounterProvider>
-        <TestComponent />
-      </CounterProvider>
-    );
+      const [useStash, StashProvider] = createStrictStash<ActionStash>(
+        (set) => ({
+          action: "1",
+          setAction: (action) => set({ action }),
+        })
+      );
 
-    expect(screen.getByText("0")).toBeInTheDocument();
+      function ActionButton() {
+        const setAction = useStash(({ setAction }) => setAction);
+        return (
+          <button data-testid="button" onClick={() => setAction("2")}>
+            Change
+          </button>
+        );
+      }
+
+      function ActionDisplay() {
+        const action = useStash(({ action }) => action);
+        return <div data-testid="action">{action}</div>;
+      }
+
+      render(
+        <StashProvider>
+          <ActionButton />
+          <ActionDisplay />
+        </StashProvider>
+      );
+
+      expect(screen.getByTestId("action")).toHaveTextContent("1");
+      await userEvent.click(screen.getByTestId("button"));
+      expect(screen.getByTestId("action")).toHaveTextContent("2");
+    });
+
+    test("state updates correctly with callback", async () => {
+      type ActionStash = {
+        action: "1" | "2";
+        setAction: (newAction: "1" | "2") => void;
+      };
+
+      const [useStash, StashProvider] = createStrictStash<ActionStash>(
+        (set) => ({
+          action: "1",
+          setAction: (action) => set(() => ({ action })),
+        })
+      );
+
+      function ActionButton() {
+        const setAction = useStash(({ setAction }) => setAction);
+        return (
+          <button data-testid="button" onClick={() => setAction("2")}>
+            Change
+          </button>
+        );
+      }
+
+      function ActionDisplay() {
+        const action = useStash(({ action }) => action);
+        return <div data-testid="action">{action}</div>;
+      }
+
+      render(
+        <StashProvider>
+          <ActionButton />
+          <ActionDisplay />
+        </StashProvider>
+      );
+
+      expect(screen.getByTestId("action")).toHaveTextContent("1");
+      await userEvent.click(screen.getByTestId("button"));
+      expect(screen.getByTestId("action")).toHaveTextContent("2");
+    });
   });
 });
